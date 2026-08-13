@@ -297,108 +297,7 @@ jobs:
           echo "✅ Environment validation completed successfully."
 
   # ------------------------------------------------------------
-  # 2) Pre-req Package Install and Validation
-  # ------------------------------------------------------------
-  prereq-package-install-validation:
-    name: prereq-package-install-validation
-    runs-on: ${{ inputs.RUNNER_LABEL }}
-    environment: ${{ inputs.ENVIRONMENT_NAME }}
-    needs: [env-validation]
-
-    env:
-      GH_PAT: ${{ secrets.GH_PAT }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install and validate required tooling
-        shell: bash
-        run: |
-          echo "=========================================="
-          echo "# 2) Pre-req Package Install and Validation"
-          echo "=========================================="
-          set -euo pipefail
-
-          echo "[INFO] Runner OS information"
-          source /etc/os-release || true
-          echo "[INFO] OS: ${PRETTY_NAME:-unknown}"
-
-          HAS_SUDO="false"
-          if sudo -n true >/dev/null 2>&1; then
-            HAS_SUDO="true"
-            echo "[INFO] Sudo access detected."
-          else
-            echo "[INFO] Sudo access not detected."
-          fi
-
-          REQUIRED_COMMANDS=(curl jq git python3 sed awk grep)
-          MISSING_PACKAGES=()
-
-          for cmd in "${REQUIRED_COMMANDS[@]}"; do
-            if command -v "$cmd" >/dev/null 2>&1; then
-              echo "[INFO] $cmd detected"
-            else
-              echo "[WARN] $cmd is missing"
-              MISSING_PACKAGES+=("$cmd")
-            fi
-          done
-
-          if [[ "${#MISSING_PACKAGES[@]}" -gt 0 ]]; then
-            if [[ "$HAS_SUDO" == "true" ]]; then
-              echo "[INFO] Installing missing packages: ${MISSING_PACKAGES[*]}"
-              sudo apt-get update -y
-              sudo apt-get install -y "${MISSING_PACKAGES[@]}"
-            else
-              echo "[ERROR] Missing packages and sudo access is not available:"
-              printf ' - %s\n' "${MISSING_PACKAGES[@]}"
-              exit 1
-            fi
-          fi
-
-          if command -v gh >/dev/null 2>&1; then
-            echo "[INFO] GitHub CLI detected: $(gh --version | head -n1)"
-          else
-            if [[ "$HAS_SUDO" == "true" ]]; then
-              echo "[INFO] Installing GitHub CLI..."
-              sudo mkdir -p -m 755 /etc/apt/keyrings
-              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
-                sudo dd of=/etc/apt/keyrings/githubcli-archive-keyring.gpg
-              sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
-                sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-              sudo apt-get update -y
-              sudo apt-get install -y gh
-            else
-              echo "[ERROR] GitHub CLI is missing and sudo access is not available."
-              exit 1
-            fi
-          fi
-
-          echo "[INFO] Authenticating GitHub CLI..."
-
-          [[ -n "${GH_PAT:-}" ]] || { echo "[ERROR] GH_PAT is required"; exit 1; }
-
-          if [[ "${GITHUB_API_URL}" =~ ^https://api\.github\.com/?$ ]]; then
-            GH_HOST="github.com"
-          else
-            GH_HOST="$(echo "$GITHUB_API_URL" | sed -E 's#^https://api\.##; s#/$##')"
-          fi
-
-          echo "[INFO] GH_HOST=$GH_HOST"
-
-          unset GH_TOKEN
-          echo "$GH_PAT" | gh auth login --with-token --hostname "$GH_HOST" || true
-          gh auth status --hostname "$GH_HOST"
-
-          echo "[INFO] Installing or upgrading gh-gl2gh extension..."
-          gh extension install https://github.com/github/gh-gl2gh || gh extension upgrade gh-gl2gh || true
-
-          echo "[INFO] Installed GitHub CLI extensions:"
-          gh extension list
-
-  # ------------------------------------------------------------
-  # 3) Migration Readiness Check
+  # 2) Migration Readiness Check
   # ------------------------------------------------------------
   migration-readiness-check:
     name: migration-readiness-check
@@ -443,7 +342,7 @@ jobs:
             *.log
 
   # ------------------------------------------------------------
-  # 4) Approval Stage
+  # 3) Approval Stage
   # ------------------------------------------------------------
   approval-stage:
     name: approval-stage
@@ -473,7 +372,7 @@ jobs:
           echo "Approve this environment deployment to continue to repository migration."
 
   # ------------------------------------------------------------
-  # 5) Migrating Repos
+  # 4) Migrating Repos
   # ------------------------------------------------------------
   migrating-repos:
     name: migrating-repos
@@ -542,7 +441,7 @@ jobs:
             *.log
 
   # ------------------------------------------------------------
-  # 6) Post Migration Validation
+  # 5) Post Migration Validation
   # ------------------------------------------------------------
   post-migration-validation:
     name: post-migration-validation
