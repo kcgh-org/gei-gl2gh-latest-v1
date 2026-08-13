@@ -41,7 +41,6 @@ env:
   DEBIAN_FRONTEND: "noninteractive"
   CI_PROJECT_DIR: ${{ github.workspace }}
   INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
-  SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
   GITHUB_API_URL: ${{ inputs.GITHUB_API_URL }}
 
 jobs:
@@ -54,6 +53,7 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT_NAME }}
 
     env:
+      SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
       GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
       GH_PAT: ${{ secrets.GH_PAT }}
 
@@ -167,6 +167,27 @@ jobs:
 
           if [[ -n "${INVENTORY_FILE:-}" && -s "${INVENTORY_FILE}" ]]; then
             print_ok "Inventory file is not empty"
+            echo ""
+            echo "Checking inventory file headers..."
+            echo "----------------------------------"
+            HEADER="$(head -n 1 "$INVENTORY_FILE" | tr -d '\r')"
+            REQUIRED_COLUMNS=(
+              "group-path"
+              "project"
+              "url"
+              "github_org"
+              "github_repo"
+              "gh_repo_visibility"
+            )
+            for col in "${REQUIRED_COLUMNS[@]}"; do
+              if echo "$HEADER" | tr ',' '\n' | sed 's/^"//;s/"$//;s/^ *//;s/ *$//' | grep -Fxq "$col"; then
+                print_ok "Required inventory column found: $col"
+              else
+                print_fail "Required inventory column missing: $col"
+              fi
+            done
+            REPO_COUNT=$(($(wc -l < "$INVENTORY_FILE") - 1))
+            print_ok "Inventory contains ${REPO_COUNT} repository entries"
           else
             print_fail "Inventory file is empty or unavailable"
           fi
@@ -196,56 +217,71 @@ jobs:
           echo ""
           echo "Checking storage configuration..."
           echo "---------------------------------"
-
+          
           STORAGE_TYPE="${STORAGE_TYPE:-GITHUB}"
           STORAGE_TYPE="$(echo "$STORAGE_TYPE" | tr '[:lower:]' '[:upper:]')"
-
+          
+          IS_DR="false"
+          if [[ "${GITHUB_API_URL}" =~ ^https://api\.[a-zA-Z0-9.-]+\.ghe\.com/?$ ]]; then
+            IS_DR="true"
+          fi
+          
           if [[ "$STORAGE_TYPE" == "GITHUB" ]]; then
             print_ok "STORAGE_TYPE is GITHUB"
-            print_info "No additional storage variables are required for GitHub Storage"
-
+          
+            if [[ "$IS_DR" == "true" ]]; then
+              if [[ -n "${TARGET_UPLOAD_URL:-}" ]]; then
+                print_ok "TARGET_UPLOAD_URL is configured for GitHub Enterprise Cloud Data Residency"
+              else
+                print_fail "TARGET_UPLOAD_URL is required when GITHUB_API_URL is DR and STORAGE_TYPE=GITHUB"
+                print_info "Expected format: https://uploads.<SUBDOMAIN>.ghe.com"
+              fi
+            else
+              print_info "TARGET_UPLOAD_URL is not required for GitHub Enterprise Cloud with STORAGE_TYPE=GITHUB"
+            fi
+          
           elif [[ "$STORAGE_TYPE" == "AZURE" ]]; then
             print_ok "STORAGE_TYPE is AZURE"
-
+          
             if [[ -n "${AZURE_STORAGE_CONNECTION_STRING:-}" ]]; then
               print_ok "AZURE_STORAGE_CONNECTION_STRING is configured"
             else
               print_fail "AZURE_STORAGE_CONNECTION_STRING is required for STORAGE_TYPE=AZURE"
             fi
-
+          
           elif [[ "$STORAGE_TYPE" == "AWS" ]]; then
             print_ok "STORAGE_TYPE is AWS"
-
+          
             if [[ -n "${AWS_BUCKET_NAME:-}" ]]; then
               print_ok "AWS_BUCKET_NAME is configured: ${AWS_BUCKET_NAME}"
             else
               print_fail "AWS_BUCKET_NAME is required for STORAGE_TYPE=AWS"
             fi
-
+          
             if [[ -n "${AWS_REGION:-}" ]]; then
               print_ok "AWS_REGION is configured: ${AWS_REGION}"
             else
               print_fail "AWS_REGION is required for STORAGE_TYPE=AWS"
             fi
-
+          
             if [[ -n "${AWS_ACCESS_KEY_ID:-}" ]]; then
               print_ok "AWS_ACCESS_KEY_ID is configured"
             else
               print_fail "AWS_ACCESS_KEY_ID is required for STORAGE_TYPE=AWS"
             fi
-
+          
             if [[ -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
               print_ok "AWS_SECRET_ACCESS_KEY is configured"
             else
               print_fail "AWS_SECRET_ACCESS_KEY is required for STORAGE_TYPE=AWS"
             fi
-
+          
             if [[ -n "${AWS_SESSION_TOKEN:-}" ]]; then
               print_ok "AWS_SESSION_TOKEN is configured"
             else
               print_info "AWS_SESSION_TOKEN is not configured. This is optional."
             fi
-
+          
           else
             print_fail "Invalid STORAGE_TYPE: ${STORAGE_TYPE}. Allowed values: GITHUB, AZURE, AWS"
           fi
@@ -487,7 +523,6 @@ jobs:
           gh auth status --hostname "$GH_HOST"
 
           gh extension install https://github.com/github/gh-gl2gh || gh extension upgrade gh-gl2gh || true
-          gh gl2gh install || true
 
       - name: Run repository migration
         shell: bash
