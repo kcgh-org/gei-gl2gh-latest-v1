@@ -233,7 +233,7 @@ jobs:
           
             if [[ "$IS_DR" == "true" ]]; then
               if [[ -n "${TARGET_UPLOAD_URL:-}" ]]; then
-                print_ok "TARGET_UPLOAD_URL is configured for GitHub Enterprise Cloud Data Residency"
+                print_ok "TARGET_UPLOAD_URL is configured for GitHub Enterprise Cloud Data Residency: ${TARGET_UPLOAD_URL}"
               else
                 print_fail "TARGET_UPLOAD_URL is required when TARGET_GITHUB_API_URL is DR and STORAGE_TYPE=GITHUB"
                 print_info "Expected format: https://uploads.<SUBDOMAIN>.ghe.com"
