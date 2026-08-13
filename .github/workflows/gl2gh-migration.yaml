@@ -415,6 +415,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/setup-prereqs
+      
       - name: Run migration readiness check
         shell: bash
         run: |
@@ -502,25 +504,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        
+      - uses: ./.github/actions/setup-prereqs
 
-      - name: Authenticate GitHub CLI and install gh-gl2gh
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ "${GITHUB_API_URL}" =~ ^https://api\.github\.com/?$ ]]; then
-            GH_HOST="github.com"
-          else
-            GH_HOST="$(echo "$GITHUB_API_URL" | sed -E 's#^https://api\.##; s#/$##')"
-          fi
-
-          echo "[INFO] GH_HOST=$GH_HOST"
-
-          unset GH_TOKEN
-          echo "$GH_PAT" | gh auth login --with-token --hostname "$GH_HOST" || true
-          gh auth status --hostname "$GH_HOST"
-
-          gh extension install https://github.com/github/gh-gl2gh || gh extension upgrade gh-gl2gh || true
+      - uses: ./.github/actions/setup-gh
+        with:
+          gh-pat: ${{ secrets.GH_PAT }}
+          github-api-url: ${{ inputs.GITHUB_API_URL }}
 
       - name: Run repository migration
         shell: bash
@@ -575,28 +565,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/setup-prereqs
+
+      - uses: ./.github/actions/setup-gh
+        with:
+          gh-pat: ${{ secrets.GH_PAT }}
+          github-api-url: ${{ inputs.GITHUB_API_URL }}
+
       - name: Download migration artifacts
         uses: actions/download-artifact@v4
         with:
           name: migration-artifacts
           path: .
-
-      - name: Authenticate GitHub CLI
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ "${GITHUB_API_URL}" =~ ^https://api\.github\.com/?$ ]]; then
-            GH_HOST="github.com"
-          else
-            GH_HOST="$(echo "$GITHUB_API_URL" | sed -E 's#^https://api\.##; s#/$##')"
-          fi
-
-          echo "[INFO] GH_HOST=$GH_HOST"
-
-          unset GH_TOKEN
-          echo "$GH_PAT" | gh auth login --with-token --hostname "$GH_HOST" || true
-          gh auth status --hostname "$GH_HOST"
 
       - name: Run post-migration validation
         shell: bash
