@@ -6,6 +6,7 @@ on:
       ENVIRONMENT_NAME:
         description: "GitHub Environment name containing migration secrets"
         type: string
+        default: "gl2gh-migration-secrets"
         required: true
 
       APPROVAL_ENVIRONMENT_NAME:
