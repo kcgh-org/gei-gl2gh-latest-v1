@@ -80,6 +80,9 @@ jobs:
           echo "====================================="
           set -euo pipefail
 
+          echo "INPUT VALUE: '${{ inputs.GITHUB_API_URL }}'"
+          echo "ENV VALUE: '$GITHUB_API_URL'"
+
           VALIDATION_FAILED=0
 
           print_ok() {
