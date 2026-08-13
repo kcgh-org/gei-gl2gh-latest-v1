@@ -40,8 +40,11 @@ permissions:
 env:
   DEBIAN_FRONTEND: "noninteractive"
   CI_PROJECT_DIR: ${{ github.workspace }}
-  # INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
-  # GITHUB_API_URL: ${{ inputs.GITHUB_API_URL }}
+  ENVIRONMENT_NAME: ${{ inputs.ENVIRONMENT_NAME }}
+  APPROVAL_ENVIRONMENT_NAME: ${{ inputs.APPROVAL_ENVIRONMENT_NAME }}
+  INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
+  GH_API_URL: ${{ inputs.GITHUB_API_URL }}
+  RUNNER_LABEL: ${{ inputs.RUNNER_LABEL }}
 
 jobs:
   # ------------------------------------------------------------
