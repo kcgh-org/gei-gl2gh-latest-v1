@@ -12,7 +12,7 @@ on:
       APPROVAL_ENVIRONMENT_NAME:
         description: "GitHub Environment name used for manual approval"
         type: string
-        default: "approvers-group"
+        default: "gl2gh-migration-approvers"
         required: true
 
       SOURCE_GL_SERVER_URL:
