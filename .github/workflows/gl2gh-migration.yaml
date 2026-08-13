@@ -303,7 +303,7 @@ jobs:
     name: migration-readiness-check
     runs-on: ${{ inputs.RUNNER_LABEL }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
-    needs: [prereq-package-install-validation]
+    needs: [env-validation]
 
     env:
       SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
