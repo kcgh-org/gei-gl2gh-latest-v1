@@ -15,7 +15,7 @@ on:
         default: "gl2gh-migration-approvers"
         required: true
 
-      MIGRATION_TARGET_API_URL:
+      TARGET_GITHUB_API_URL:
         description: "GitHub API URL. Use https://api.github.com for GHEC, or DR API URL for GitHub Data Residency."
         type: string
         default: "https://api.github.com"
@@ -40,11 +40,6 @@ permissions:
 env:
   DEBIAN_FRONTEND: "noninteractive"
   CI_PROJECT_DIR: ${{ github.workspace }}
-  ENVIRONMENT_NAME: ${{ inputs.ENVIRONMENT_NAME }}
-  APPROVAL_ENVIRONMENT_NAME: ${{ inputs.APPROVAL_ENVIRONMENT_NAME }}
-  INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
-  MIGRATION_TARGET_API_URL: ${{ inputs.MIGRATION_TARGET_API_URL }}
-  RUNNER_LABEL: ${{ inputs.RUNNER_LABEL }}
 
 jobs:
   # ------------------------------------------------------------
@@ -58,9 +53,13 @@ jobs:
     env:
       SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
       GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
+      INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
+
+      TARGET_GITHUB_API_URL: ${{ inputs.TARGET_GITHUB_API_URL }}
       GH_PAT: ${{ secrets.GH_PAT }}
 
       STORAGE_TYPE: ${{ vars.STORAGE_TYPE }}
+      
       TARGET_UPLOAD_URL: ${{ vars.TARGET_UPLOAD_URL }}
 
       AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
@@ -82,9 +81,6 @@ jobs:
           echo "# 1) Environment Validation"
           echo "====================================="
           set -euo pipefail
-
-          echo "INPUT VALUE: '${{ inputs.MIGRATION_TARGET_API_URL }}'"
-          echo "ENV VALUE: '$MIGRATION_TARGET_API_URL'"
 
           VALIDATION_FAILED=0
 
@@ -130,10 +126,10 @@ jobs:
           echo "Checking runtime inputs..."
           echo "--------------------------"
 
-          if [[ -n "${MIGRATION_TARGET_API_URL:-}" ]]; then
-            print_ok "MIGRATION_TARGET_API_URL is provided: ${MIGRATION_TARGET_API_URL}"
+          if [[ -n "${TARGET_GITHUB_API_URL:-}" ]]; then
+            print_ok "TARGET_GITHUB_API_URL is provided: ${TARGET_GITHUB_API_URL}"
           else
-            print_fail "MIGRATION_TARGET_API_URL is required"
+            print_fail "TARGET_GITHUB_API_URL is required"
           fi
 
           if [[ -n "${INVENTORY_FILE:-}" ]]; then
@@ -146,16 +142,16 @@ jobs:
           echo "Checking GitHub API URL..."
           echo "--------------------------"
 
-          if [[ -z "${MIGRATION_TARGET_API_URL:-}" ]]; then
-            print_fail "MIGRATION_TARGET_API_URL is empty"
-          elif [[ "${MIGRATION_TARGET_API_URL}" =~ ^https://api\.github\.com/?$ ]]; then
+          if [[ -z "${TARGET_GITHUB_API_URL:-}" ]]; then
+            print_fail "TARGET_GITHUB_API_URL is empty"
+          elif [[ "${TARGET_GITHUB_API_URL}" =~ ^https://api\.github\.com/?$ ]]; then
             print_ok "GitHub API URL is valid for GitHub Enterprise Cloud"
             print_info "Migration destination: GitHub Enterprise Cloud"
-          elif [[ "${MIGRATION_TARGET_API_URL}" =~ ^https://api\.[a-zA-Z0-9.-]+\.ghe\.com/?$ ]]; then
+          elif [[ "${TARGET_GITHUB_API_URL}" =~ ^https://api\.[a-zA-Z0-9.-]+\.ghe\.com/?$ ]]; then
             print_ok "GitHub API URL is valid for GitHub Enterprise Cloud Data Residency"
             print_info "Migration destination: GitHub Enterprise Cloud Data Residency"
           else
-            print_fail "Invalid MIGRATION_TARGET_API_URL: ${MIGRATION_TARGET_API_URL}"
+            print_fail "Invalid TARGET_GITHUB_API_URL: ${TARGET_GITHUB_API_URL}"
             print_info "Expected values:"
             print_info " - https://api.github.com"
             print_info " - https://api.<SUBDOMAIN>.ghe.com"
@@ -228,7 +224,7 @@ jobs:
           STORAGE_TYPE="$(echo "$STORAGE_TYPE" | tr '[:lower:]' '[:upper:]')"
           
           IS_DR="false"
-          if [[ "${MIGRATION_TARGET_API_URL}" =~ ^https://api\.[a-zA-Z0-9.-]+\.ghe\.com/?$ ]]; then
+          if [[ "${TARGET_GITHUB_API_URL}" =~ ^https://api\.[a-zA-Z0-9.-]+\.ghe\.com/?$ ]]; then
             IS_DR="true"
           fi
           
@@ -239,7 +235,7 @@ jobs:
               if [[ -n "${TARGET_UPLOAD_URL:-}" ]]; then
                 print_ok "TARGET_UPLOAD_URL is configured for GitHub Enterprise Cloud Data Residency"
               else
-                print_fail "TARGET_UPLOAD_URL is required when MIGRATION_TARGET_API_URL is DR and STORAGE_TYPE=GITHUB"
+                print_fail "TARGET_UPLOAD_URL is required when TARGET_GITHUB_API_URL is DR and STORAGE_TYPE=GITHUB"
                 print_info "Expected format: https://uploads.<SUBDOMAIN>.ghe.com"
               fi
             fi
@@ -388,14 +384,15 @@ jobs:
 
     env:
       SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
-      MIGRATION_TARGET_API_URL: ${{ inputs.MIGRATION_TARGET_API_URL }}
+      GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
       INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
 
-      GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
+      TARGET_GITHUB_API_URL: ${{ inputs.TARGET_GITHUB_API_URL }}
       GH_PAT: ${{ secrets.GH_PAT }}
       GH_TOKEN: ${{ secrets.GH_PAT }}
 
       STORAGE_TYPE: ${{ vars.STORAGE_TYPE }}
+
       TARGET_UPLOAD_URL: ${{ vars.TARGET_UPLOAD_URL }}
 
       AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
@@ -415,7 +412,7 @@ jobs:
       - uses: ./.github/actions/setup-gh
         with:
           gh-pat: ${{ secrets.GH_PAT }}
-          github-api-url: ${{ inputs.MIGRATION_TARGET_API_URL }}
+          github-api-url: ${{ inputs.TARGET_GITHUB_API_URL }}
 
       - name: Run repository migration
         shell: bash
@@ -428,7 +425,8 @@ jobs:
           sed -i 's/\r$//' ./2_migration.sh
           chmod +x ./2_migration.sh
 
-          export GITHUB_API_URL="${MIGRATION_TARGET_API_URL}"
+          export GITHUB_API_URL="${TARGET_GITHUB_API_URL}"
+          echo "GH API URL is: $GITHUB_API_URL"
           ./2_migration.sh 2>&1 | tee 2_migration.out
 
           echo ""
@@ -455,13 +453,12 @@ jobs:
     runs-on: ${{ inputs.RUNNER_LABEL }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
     needs: [migrate-repositories]
-    if: always()
-
+    
     env:
       SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
-      MIGRATION_TARGET_API_URL: ${{ inputs.MIGRATION_TARGET_API_URL }}
-
       GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
+
+      TARGET_GITHUB_API_URL: ${{ inputs.TARGET_GITHUB_API_URL }}
       GH_PAT: ${{ secrets.GH_PAT }}
       GH_TOKEN: ${{ secrets.GH_PAT }}
 
@@ -476,7 +473,7 @@ jobs:
       - uses: ./.github/actions/setup-gh
         with:
           gh-pat: ${{ secrets.GH_PAT }}
-          github-api-url: ${{ inputs.MIGRATION_TARGET_API_URL }}
+          github-api-url: ${{ inputs.TARGET_GITHUB_API_URL }}
 
       - name: Download migration artifacts
         uses: actions/download-artifact@v4
@@ -502,7 +499,8 @@ jobs:
           sed -i 's/\r$//' ./3_post_migration_validation.sh
           chmod +x ./3_post_migration_validation.sh
 
-          export GITHUB_API_URL="${MIGRATION_TARGET_API_URL}"
+          export GITHUB_API_URL="${TARGET_GITHUB_API_URL}"
+          echo "GH API URL is: $GITHUB_API_URL"
           ./3_post_migration_validation.sh 2>&1 | tee 3_post_migration_validation.out
 
       - name: Upload validation artifacts
