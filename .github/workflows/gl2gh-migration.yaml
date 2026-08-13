@@ -236,8 +236,6 @@ jobs:
                 print_fail "TARGET_UPLOAD_URL is required when GITHUB_API_URL is DR and STORAGE_TYPE=GITHUB"
                 print_info "Expected format: https://uploads.<SUBDOMAIN>.ghe.com"
               fi
-            else
-              print_info "TARGET_UPLOAD_URL is not required for GitHub Enterprise Cloud with STORAGE_TYPE=GITHUB"
             fi
           
           elif [[ "$STORAGE_TYPE" == "AZURE" ]]; then
