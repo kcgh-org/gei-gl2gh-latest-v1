@@ -85,70 +85,192 @@ jobs:
           echo "====================================="
           set -euo pipefail
 
-          echo "[INFO] Validating required runtime inputs..."
+      - name: Validate runtime inputs, secrets, storage, and scripts
+        shell: bash
+        run: |
+          echo "====================================="
+          echo "# 1) Environment Validation"
+          echo "====================================="
+          set -euo pipefail
 
-          [[ -n "${SOURCE_GL_SERVER_URL:-}" ]] || { echo "[ERROR] SOURCE_GL_SERVER_URL is required"; exit 1; }
-          [[ -n "${GITHUB_API_URL:-}" ]] || { echo "[ERROR] GITHUB_API_URL is required"; exit 1; }
-          [[ -n "${INVENTORY_FILE:-}" ]] || { echo "[ERROR] INVENTORY_FILE is required"; exit 1; }
+          VALIDATION_FAILED=0
 
-          echo "[INFO] Validating GitHub API URL..."
-          if [[ "${GITHUB_API_URL}" =~ ^https://api\.github\.com/?$ ]]; then
-            echo "[INFO] Migration destination: GitHub Enterprise Cloud"
-          elif [[ "${GITHUB_API_URL}" =~ ^https://api\.[a-zA-Z0-9.-]+\.ghe\.com/?$ ]]; then
-            echo "[INFO] Migration destination: GitHub Enterprise Cloud Data Residency"
+          print_ok() {
+            echo "✅ $1"
+          }
+
+          print_fail() {
+            echo "❌ $1"
+            VALIDATION_FAILED=1
+          }
+
+          print_info() {
+            echo "ℹ️  $1"
+          }
+
+          echo ""
+          echo "Checking required secrets..."
+          echo "----------------------------"
+
+          if [[ -n "${GITLAB_PAT:-}" ]]; then
+            print_ok "GITLAB_PAT is configured"
           else
-            echo "[ERROR] Invalid GITHUB_API_URL: ${GITHUB_API_URL}"
-            echo "[INFO] Expected: https://api.github.com or https://api.<SUBDOMAIN>.ghe.com"
-            exit 1
+            print_fail "GITLAB_PAT is missing in GitHub Environment secrets"
           fi
 
-          echo "[INFO] Validating required secrets..."
+          if [[ -n "${GH_PAT:-}" ]]; then
+            print_ok "GH_PAT is configured"
+          else
+            print_fail "GH_PAT is missing in GitHub Environment secrets"
+          fi
 
-          [[ -n "${GITLAB_PAT:-}" ]] || { echo "[ERROR] GITLAB_PAT secret is required"; exit 1; }
-          [[ -n "${GH_PAT:-}" ]] || { echo "[ERROR] GH_PAT secret is required"; exit 1; }
+          echo ""
+          echo "Checking runtime inputs..."
+          echo "--------------------------"
 
-          echo "[INFO] Validating storage configuration..."
+          if [[ -n "${SOURCE_GL_SERVER_URL:-}" ]]; then
+            print_ok "SOURCE_GL_SERVER_URL is provided: ${SOURCE_GL_SERVER_URL}"
+          else
+            print_fail "SOURCE_GL_SERVER_URL is required"
+          fi
+
+          if [[ -n "${GITHUB_API_URL:-}" ]]; then
+            print_ok "GITHUB_API_URL is provided: ${GITHUB_API_URL}"
+          else
+            print_fail "GITHUB_API_URL is required"
+          fi
+
+          if [[ -n "${INVENTORY_FILE:-}" ]]; then
+            print_ok "INVENTORY_FILE is provided: ${INVENTORY_FILE}"
+          else
+            print_fail "INVENTORY_FILE is required"
+          fi
+
+          echo ""
+          echo "Checking GitHub API URL..."
+          echo "--------------------------"
+
+          if [[ -z "${GITHUB_API_URL:-}" ]]; then
+            print_fail "GITHUB_API_URL is empty"
+          elif [[ "${GITHUB_API_URL}" =~ ^https://api\.github\.com/?$ ]]; then
+            print_ok "GitHub API URL is valid for GitHub Enterprise Cloud"
+            print_info "Migration destination: GitHub Enterprise Cloud"
+          elif [[ "${GITHUB_API_URL}" =~ ^https://api\.[a-zA-Z0-9.-]+\.ghe\.com/?$ ]]; then
+            print_ok "GitHub API URL is valid for GitHub Enterprise Cloud Data Residency"
+            print_info "Migration destination: GitHub Enterprise Cloud Data Residency"
+          else
+            print_fail "Invalid GITHUB_API_URL: ${GITHUB_API_URL}"
+            print_info "Expected values:"
+            print_info " - https://api.github.com"
+            print_info " - https://api.<SUBDOMAIN>.ghe.com"
+          fi
+
+          echo ""
+          echo "Checking inventory file..."
+          echo "--------------------------"
+
+          if [[ -n "${INVENTORY_FILE:-}" && -f "${INVENTORY_FILE}" ]]; then
+            print_ok "Inventory file exists: ${INVENTORY_FILE}"
+          else
+            print_fail "Inventory file not found: ${INVENTORY_FILE:-not set}"
+          fi
+
+          if [[ -n "${INVENTORY_FILE:-}" && -s "${INVENTORY_FILE}" ]]; then
+            print_ok "Inventory file is not empty"
+          else
+            print_fail "Inventory file is empty or unavailable"
+          fi
+
+          echo ""
+          echo "Checking required scripts..."
+          echo "----------------------------"
+
+          if [[ -f "./1_migration_readiness_check.sh" ]]; then
+            print_ok "1_migration_readiness_check.sh exists"
+          else
+            print_fail "1_migration_readiness_check.sh not found"
+          fi
+
+          if [[ -f "./2_migration.sh" ]]; then
+            print_ok "2_migration.sh exists"
+          else
+            print_fail "2_migration.sh not found"
+          fi
+
+          if [[ -f "./3_post_migration_validation.sh" ]]; then
+            print_ok "3_post_migration_validation.sh exists"
+          else
+            print_fail "3_post_migration_validation.sh not found"
+          fi
+
+          echo ""
+          echo "Checking storage configuration..."
+          echo "---------------------------------"
 
           STORAGE_TYPE="${STORAGE_TYPE:-GITHUB}"
           STORAGE_TYPE="$(echo "$STORAGE_TYPE" | tr '[:lower:]' '[:upper:]')"
 
-          case "$STORAGE_TYPE" in
-            GITHUB)
-              echo "[INFO] STORAGE_TYPE=GITHUB"
-              ;;
+          if [[ "$STORAGE_TYPE" == "GITHUB" ]]; then
+            print_ok "STORAGE_TYPE is GITHUB"
+            print_info "No additional storage variables are required for GitHub Storage"
 
-            AZURE)
-              echo "[INFO] STORAGE_TYPE=AZURE"
-              [[ -n "${AZURE_STORAGE_CONNECTION_STRING:-}" ]] || {
-                echo "[ERROR] AZURE_STORAGE_CONNECTION_STRING secret is required for STORAGE_TYPE=AZURE"
-                exit 1
-              }
-              ;;
+          elif [[ "$STORAGE_TYPE" == "AZURE" ]]; then
+            print_ok "STORAGE_TYPE is AZURE"
 
-            AWS)
-              echo "[INFO] STORAGE_TYPE=AWS"
-              [[ -n "${AWS_BUCKET_NAME:-}" ]] || { echo "[ERROR] AWS_BUCKET_NAME variable is required"; exit 1; }
-              [[ -n "${AWS_REGION:-}" ]] || { echo "[ERROR] AWS_REGION variable is required"; exit 1; }
-              [[ -n "${AWS_ACCESS_KEY_ID:-}" ]] || { echo "[ERROR] AWS_ACCESS_KEY_ID secret is required"; exit 1; }
-              [[ -n "${AWS_SECRET_ACCESS_KEY:-}" ]] || { echo "[ERROR] AWS_SECRET_ACCESS_KEY secret is required"; exit 1; }
-              ;;
+            if [[ -n "${AZURE_STORAGE_CONNECTION_STRING:-}" ]]; then
+              print_ok "AZURE_STORAGE_CONNECTION_STRING is configured"
+            else
+              print_fail "AZURE_STORAGE_CONNECTION_STRING is required for STORAGE_TYPE=AZURE"
+            fi
 
-            *)
-              echo "[ERROR] STORAGE_TYPE must be GITHUB, AZURE, or AWS"
-              exit 1
-              ;;
-          esac
+          elif [[ "$STORAGE_TYPE" == "AWS" ]]; then
+            print_ok "STORAGE_TYPE is AWS"
 
-          echo "[INFO] Validating required files..."
+            if [[ -n "${AWS_BUCKET_NAME:-}" ]]; then
+              print_ok "AWS_BUCKET_NAME is configured: ${AWS_BUCKET_NAME}"
+            else
+              print_fail "AWS_BUCKET_NAME is required for STORAGE_TYPE=AWS"
+            fi
 
-          test -f "./1_migration_readiness_check.sh" || { echo "[ERROR] 1_migration_readiness_check.sh not found"; exit 1; }
-          test -f "./2_migration.sh" || { echo "[ERROR] 2_migration.sh not found"; exit 1; }
-          test -f "./3_post_migration_validation.sh" || { echo "[ERROR] 3_post_migration_validation.sh not found"; exit 1; }
+            if [[ -n "${AWS_REGION:-}" ]]; then
+              print_ok "AWS_REGION is configured: ${AWS_REGION}"
+            else
+              print_fail "AWS_REGION is required for STORAGE_TYPE=AWS"
+            fi
 
-          test -f "$INVENTORY_FILE" || { echo "[ERROR] Inventory file not found: $INVENTORY_FILE"; exit 1; }
-          test -s "$INVENTORY_FILE" || { echo "[ERROR] Inventory file is empty: $INVENTORY_FILE"; exit 1; }
+            if [[ -n "${AWS_ACCESS_KEY_ID:-}" ]]; then
+              print_ok "AWS_ACCESS_KEY_ID is configured"
+            else
+              print_fail "AWS_ACCESS_KEY_ID is required for STORAGE_TYPE=AWS"
+            fi
 
-          echo "[INFO] Environment validation completed successfully."
+            if [[ -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
+              print_ok "AWS_SECRET_ACCESS_KEY is configured"
+            else
+              print_fail "AWS_SECRET_ACCESS_KEY is required for STORAGE_TYPE=AWS"
+            fi
+
+            if [[ -n "${AWS_SESSION_TOKEN:-}" ]]; then
+              print_ok "AWS_SESSION_TOKEN is configured"
+            else
+              print_info "AWS_SESSION_TOKEN is not configured. This is optional."
+            fi
+
+          else
+            print_fail "Invalid STORAGE_TYPE: ${STORAGE_TYPE}. Allowed values: GITHUB, AZURE, AWS"
+          fi
+
+          echo ""
+          echo "====================================="
+          echo "Environment Validation Summary"
+          echo "====================================="
+
+          if [[ "$VALIDATION_FAILED" -ne 0 ]]; then
+            echo "❌ Environment validation failed. Fix the errors above before continuing."
+            exit 1
+          fi
+
+          echo "✅ Environment validation completed successfully."
 
   # ------------------------------------------------------------
   # 2) Pre-req Package Install and Validation
