@@ -16,7 +16,7 @@ runs:
       shell: bash
       env:
         GH_PAT: ${{ inputs.gh-pat }}
-        GITHUB_API_URL: ${{ inputs.github-api-url }}
+        TARGET_GITHUB_API_URL: ${{ inputs.github-api-url }}
       run: |
         set -euo pipefail
 
@@ -56,10 +56,10 @@ runs:
           exit 1
         }
 
-        if [[ "$GITHUB_API_URL" =~ ^https://api\.github\.com/?$ ]]; then
+        if [[ "$TARGET_GITHUB_API_URL" =~ ^https://api\.github\.com/?$ ]]; then
           GH_HOST="github.com"
         else
-          GH_HOST="$(echo "$GITHUB_API_URL" | sed -E 's#^https://api\.##; s#/$##')"
+          GH_HOST="$(echo "$TARGET_GITHUB_API_URL" | sed -E 's#^https://api\.##; s#/$##')"
         fi
 
         echo "[INFO] GH_HOST=$GH_HOST"
