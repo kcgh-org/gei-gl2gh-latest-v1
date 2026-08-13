@@ -374,8 +374,8 @@ jobs:
   # ------------------------------------------------------------
   # 4) Migrating Repos
   # ------------------------------------------------------------
-  migrating-repos:
-    name: migrating-repos
+  migrate-repositories:
+    name: migrate-repositories
     runs-on: ${{ inputs.RUNNER_LABEL }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
     needs: [approval-stage]
@@ -447,7 +447,7 @@ jobs:
     name: post-migration-validation
     runs-on: ${{ inputs.RUNNER_LABEL }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
-    needs: [migrating-repos]
+    needs: [migrate-repositories]
     if: always()
 
     env:
