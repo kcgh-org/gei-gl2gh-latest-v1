@@ -1,0 +1,4 @@
+group-path,group-name,project,url,last-commit-date,repo-size-in-bytes,attachments-size-in-bytes,is-archived,mr-count,github_org,github_repo,gh_repo_visibility
+"pauljaison-group","pauljaison-group","dopamine","https://gitlab.com/pauljaison-group/dopamine","2026-08-11 03:13 PM","250011891","0","False",1,kcghorgz,dopamine-20261013-2a,private
+"pauljaison-group","pauljaison-group","ecom","https://gitlab.com/pauljaison-group/ecommerce-store","2026-08-11 11:47 AM","288700","0","False",1,kcghorgz,ecom-20261013-2a,private
+"pauljaison-group","pauljaison-group","pauljaison-project","https://gitlab.com/pauljaison-group/pauljaison-project","2025-07-25 09:47 AM","3021","0","False",0,kcghorgz,pauljaison-project-20261013-2a,private
