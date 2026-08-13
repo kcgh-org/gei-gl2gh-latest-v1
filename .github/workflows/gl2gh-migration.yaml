@@ -85,14 +85,6 @@ jobs:
           echo "====================================="
           set -euo pipefail
 
-      - name: Validate runtime inputs, secrets, storage, and scripts
-        shell: bash
-        run: |
-          echo "====================================="
-          echo "# 1) Environment Validation"
-          echo "====================================="
-          set -euo pipefail
-
           VALIDATION_FAILED=0
 
           print_ok() {
@@ -296,13 +288,10 @@ jobs:
           echo "=========================================="
           set -euo pipefail
 
+          echo "[INFO] Runner OS information"
           source /etc/os-release || true
           echo "[INFO] OS: ${PRETTY_NAME:-unknown}"
-
-          if [[ "${ID:-}" != "ubuntu" ]]; then
-            echo "[ERROR] Ubuntu runner is required. Current OS: ${PRETTY_NAME:-unknown}"
-            exit 1
-          fi
+          echo "[INFO] Kernel: $(uname -r)"
 
           HAS_SUDO="false"
           if sudo -n true >/dev/null 2>&1; then
@@ -373,9 +362,6 @@ jobs:
 
           echo "[INFO] Installing or upgrading gh-gl2gh extension..."
           gh extension install https://github.com/github/gh-gl2gh || gh extension upgrade gh-gl2gh || true
-
-          echo "[INFO] Installing gl2gh tool binary if required..."
-          gh gl2gh install || true
 
           echo "[INFO] Installed GitHub CLI extensions:"
           gh extension list
