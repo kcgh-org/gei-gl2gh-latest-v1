@@ -15,7 +15,7 @@ on:
         default: "gl2gh-migration-approvers"
         required: true
 
-      GITHUB_API_URL:
+      MIGRATION_TARGET_API_URL:
         description: "GitHub API URL. Use https://api.github.com for GHEC, or DR API URL for GitHub Data Residency."
         type: string
         default: "https://api.github.com"
@@ -40,8 +40,11 @@ permissions:
 env:
   DEBIAN_FRONTEND: "noninteractive"
   CI_PROJECT_DIR: ${{ github.workspace }}
+  ENVIRONMENT_NAME: ${{ inputs.ENVIRONMENT_NAME }}
+  APPROVAL_ENVIRONMENT_NAME: ${{ inputs.APPROVAL_ENVIRONMENT_NAME }}
   INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
-  GITHUB_API_URL: ${{ inputs.GITHUB_API_URL }}
+  MIGRATION_TARGET_API_URL: ${{ inputs.MIGRATION_TARGET_API_URL }}
+  RUNNER_LABEL: ${{ inputs.RUNNER_LABEL }}
 
 jobs:
   # ------------------------------------------------------------
@@ -79,6 +82,9 @@ jobs:
           echo "# 1) Environment Validation"
           echo "====================================="
           set -euo pipefail
+
+          echo "INPUT VALUE: '${{ inputs.MIGRATION_TARGET_API_URL }}'"
+          echo "ENV VALUE: '$MIGRATION_TARGET_API_URL'"
 
           VALIDATION_FAILED=0
 
@@ -124,10 +130,10 @@ jobs:
           echo "Checking runtime inputs..."
           echo "--------------------------"
 
-          if [[ -n "${GITHUB_API_URL:-}" ]]; then
-            print_ok "GITHUB_API_URL is provided: ${GITHUB_API_URL}"
+          if [[ -n "${MIGRATION_TARGET_API_URL:-}" ]]; then
+            print_ok "MIGRATION_TARGET_API_URL is provided: ${MIGRATION_TARGET_API_URL}"
           else
-            print_fail "GITHUB_API_URL is required"
+            print_fail "MIGRATION_TARGET_API_URL is required"
           fi
 
           if [[ -n "${INVENTORY_FILE:-}" ]]; then
@@ -140,16 +146,16 @@ jobs:
           echo "Checking GitHub API URL..."
           echo "--------------------------"
 
-          if [[ -z "${GITHUB_API_URL:-}" ]]; then
-            print_fail "GITHUB_API_URL is empty"
-          elif [[ "${GITHUB_API_URL}" =~ ^https://api\.github\.com/?$ ]]; then
+          if [[ -z "${MIGRATION_TARGET_API_URL:-}" ]]; then
+            print_fail "MIGRATION_TARGET_API_URL is empty"
+          elif [[ "${MIGRATION_TARGET_API_URL}" =~ ^https://api\.github\.com/?$ ]]; then
             print_ok "GitHub API URL is valid for GitHub Enterprise Cloud"
             print_info "Migration destination: GitHub Enterprise Cloud"
-          elif [[ "${GITHUB_API_URL}" =~ ^https://api\.[a-zA-Z0-9.-]+\.ghe\.com/?$ ]]; then
+          elif [[ "${MIGRATION_TARGET_API_URL}" =~ ^https://api\.[a-zA-Z0-9.-]+\.ghe\.com/?$ ]]; then
             print_ok "GitHub API URL is valid for GitHub Enterprise Cloud Data Residency"
             print_info "Migration destination: GitHub Enterprise Cloud Data Residency"
           else
-            print_fail "Invalid GITHUB_API_URL: ${GITHUB_API_URL}"
+            print_fail "Invalid MIGRATION_TARGET_API_URL: ${MIGRATION_TARGET_API_URL}"
             print_info "Expected values:"
             print_info " - https://api.github.com"
             print_info " - https://api.<SUBDOMAIN>.ghe.com"
@@ -222,7 +228,7 @@ jobs:
           STORAGE_TYPE="$(echo "$STORAGE_TYPE" | tr '[:lower:]' '[:upper:]')"
           
           IS_DR="false"
-          if [[ "${GITHUB_API_URL}" =~ ^https://api\.[a-zA-Z0-9.-]+\.ghe\.com/?$ ]]; then
+          if [[ "${MIGRATION_TARGET_API_URL}" =~ ^https://api\.[a-zA-Z0-9.-]+\.ghe\.com/?$ ]]; then
             IS_DR="true"
           fi
           
@@ -233,7 +239,7 @@ jobs:
               if [[ -n "${TARGET_UPLOAD_URL:-}" ]]; then
                 print_ok "TARGET_UPLOAD_URL is configured for GitHub Enterprise Cloud Data Residency"
               else
-                print_fail "TARGET_UPLOAD_URL is required when GITHUB_API_URL is DR and STORAGE_TYPE=GITHUB"
+                print_fail "TARGET_UPLOAD_URL is required when MIGRATION_TARGET_API_URL is DR and STORAGE_TYPE=GITHUB"
                 print_info "Expected format: https://uploads.<SUBDOMAIN>.ghe.com"
               fi
             fi
@@ -297,114 +303,13 @@ jobs:
           echo "✅ Environment validation completed successfully."
 
   # ------------------------------------------------------------
-  # 2) Pre-req Package Install and Validation
-  # ------------------------------------------------------------
-  prereq-package-install-validation:
-    name: prereq-package-install-validation
-    runs-on: ${{ inputs.RUNNER_LABEL }}
-    environment: ${{ inputs.ENVIRONMENT_NAME }}
-    needs: [env-validation]
-
-    env:
-      GH_PAT: ${{ secrets.GH_PAT }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install and validate required tooling
-        shell: bash
-        run: |
-          echo "=========================================="
-          echo "# 2) Pre-req Package Install and Validation"
-          echo "=========================================="
-          set -euo pipefail
-
-          echo "[INFO] Runner OS information"
-          source /etc/os-release || true
-          echo "[INFO] OS: ${PRETTY_NAME:-unknown}"
-
-          HAS_SUDO="false"
-          if sudo -n true >/dev/null 2>&1; then
-            HAS_SUDO="true"
-            echo "[INFO] Sudo access detected."
-          else
-            echo "[INFO] Sudo access not detected."
-          fi
-
-          REQUIRED_COMMANDS=(curl jq git python3 sed awk grep)
-          MISSING_PACKAGES=()
-
-          for cmd in "${REQUIRED_COMMANDS[@]}"; do
-            if command -v "$cmd" >/dev/null 2>&1; then
-              echo "[INFO] $cmd detected"
-            else
-              echo "[WARN] $cmd is missing"
-              MISSING_PACKAGES+=("$cmd")
-            fi
-          done
-
-          if [[ "${#MISSING_PACKAGES[@]}" -gt 0 ]]; then
-            if [[ "$HAS_SUDO" == "true" ]]; then
-              echo "[INFO] Installing missing packages: ${MISSING_PACKAGES[*]}"
-              sudo apt-get update -y
-              sudo apt-get install -y "${MISSING_PACKAGES[@]}"
-            else
-              echo "[ERROR] Missing packages and sudo access is not available:"
-              printf ' - %s\n' "${MISSING_PACKAGES[@]}"
-              exit 1
-            fi
-          fi
-
-          if command -v gh >/dev/null 2>&1; then
-            echo "[INFO] GitHub CLI detected: $(gh --version | head -n1)"
-          else
-            if [[ "$HAS_SUDO" == "true" ]]; then
-              echo "[INFO] Installing GitHub CLI..."
-              sudo mkdir -p -m 755 /etc/apt/keyrings
-              curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
-                sudo dd of=/etc/apt/keyrings/githubcli-archive-keyring.gpg
-              sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
-                sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
-              sudo apt-get update -y
-              sudo apt-get install -y gh
-            else
-              echo "[ERROR] GitHub CLI is missing and sudo access is not available."
-              exit 1
-            fi
-          fi
-
-          echo "[INFO] Authenticating GitHub CLI..."
-
-          [[ -n "${GH_PAT:-}" ]] || { echo "[ERROR] GH_PAT is required"; exit 1; }
-
-          if [[ "${GITHUB_API_URL}" =~ ^https://api\.github\.com/?$ ]]; then
-            GH_HOST="github.com"
-          else
-            GH_HOST="$(echo "$GITHUB_API_URL" | sed -E 's#^https://api\.##; s#/$##')"
-          fi
-
-          echo "[INFO] GH_HOST=$GH_HOST"
-
-          unset GH_TOKEN
-          echo "$GH_PAT" | gh auth login --with-token --hostname "$GH_HOST" || true
-          gh auth status --hostname "$GH_HOST"
-
-          echo "[INFO] Installing or upgrading gh-gl2gh extension..."
-          gh extension install https://github.com/github/gh-gl2gh || gh extension upgrade gh-gl2gh || true
-
-          echo "[INFO] Installed GitHub CLI extensions:"
-          gh extension list
-
-  # ------------------------------------------------------------
-  # 3) Migration Readiness Check
+  # 2) Migration Readiness Check
   # ------------------------------------------------------------
   migration-readiness-check:
     name: migration-readiness-check
     runs-on: ${{ inputs.RUNNER_LABEL }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
-    needs: [prereq-package-install-validation]
+    needs: [env-validation]
 
     env:
       SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
@@ -415,6 +320,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/setup-prereqs
+      
       - name: Run migration readiness check
         shell: bash
         run: |
@@ -441,7 +348,7 @@ jobs:
             *.log
 
   # ------------------------------------------------------------
-  # 4) Approval Stage
+  # 3) Approval Stage
   # ------------------------------------------------------------
   approval-stage:
     name: approval-stage
@@ -471,17 +378,17 @@ jobs:
           echo "Approve this environment deployment to continue to repository migration."
 
   # ------------------------------------------------------------
-  # 5) Migrating Repos
+  # 4) Migrating Repos
   # ------------------------------------------------------------
-  migrating-repos:
-    name: migrating-repos
+  migrate-repositories:
+    name: migrate-repositories
     runs-on: ${{ inputs.RUNNER_LABEL }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
     needs: [approval-stage]
 
     env:
       SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
-      GITHUB_API_URL: ${{ inputs.GITHUB_API_URL }}
+      MIGRATION_TARGET_API_URL: ${{ inputs.MIGRATION_TARGET_API_URL }}
       INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
 
       GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
@@ -502,25 +409,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        
+      - uses: ./.github/actions/setup-prereqs
 
-      - name: Authenticate GitHub CLI and install gh-gl2gh
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ "${GITHUB_API_URL}" =~ ^https://api\.github\.com/?$ ]]; then
-            GH_HOST="github.com"
-          else
-            GH_HOST="$(echo "$GITHUB_API_URL" | sed -E 's#^https://api\.##; s#/$##')"
-          fi
-
-          echo "[INFO] GH_HOST=$GH_HOST"
-
-          unset GH_TOKEN
-          echo "$GH_PAT" | gh auth login --with-token --hostname "$GH_HOST" || true
-          gh auth status --hostname "$GH_HOST"
-
-          gh extension install https://github.com/github/gh-gl2gh || gh extension upgrade gh-gl2gh || true
+      - uses: ./.github/actions/setup-gh
+        with:
+          gh-pat: ${{ secrets.GH_PAT }}
+          github-api-url: ${{ inputs.MIGRATION_TARGET_API_URL }}
 
       - name: Run repository migration
         shell: bash
@@ -533,6 +428,7 @@ jobs:
           sed -i 's/\r$//' ./2_migration.sh
           chmod +x ./2_migration.sh
 
+          export GITHUB_API_URL="${MIGRATION_TARGET_API_URL}"
           ./2_migration.sh 2>&1 | tee 2_migration.out
 
           echo ""
@@ -552,18 +448,18 @@ jobs:
             *.log
 
   # ------------------------------------------------------------
-  # 6) Post Migration Validation
+  # 5) Post Migration Validation
   # ------------------------------------------------------------
   post-migration-validation:
     name: post-migration-validation
     runs-on: ${{ inputs.RUNNER_LABEL }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
-    needs: [migrating-repos]
+    needs: [migrate-repositories]
     if: always()
 
     env:
       SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
-      GITHUB_API_URL: ${{ inputs.GITHUB_API_URL }}
+      MIGRATION_TARGET_API_URL: ${{ inputs.MIGRATION_TARGET_API_URL }}
 
       GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
       GH_PAT: ${{ secrets.GH_PAT }}
@@ -575,28 +471,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: ./.github/actions/setup-prereqs
+
+      - uses: ./.github/actions/setup-gh
+        with:
+          gh-pat: ${{ secrets.GH_PAT }}
+          github-api-url: ${{ inputs.MIGRATION_TARGET_API_URL }}
+
       - name: Download migration artifacts
         uses: actions/download-artifact@v4
         with:
           name: migration-artifacts
           path: .
-
-      - name: Authenticate GitHub CLI
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [[ "${GITHUB_API_URL}" =~ ^https://api\.github\.com/?$ ]]; then
-            GH_HOST="github.com"
-          else
-            GH_HOST="$(echo "$GITHUB_API_URL" | sed -E 's#^https://api\.##; s#/$##')"
-          fi
-
-          echo "[INFO] GH_HOST=$GH_HOST"
-
-          unset GH_TOKEN
-          echo "$GH_PAT" | gh auth login --with-token --hostname "$GH_HOST" || true
-          gh auth status --hostname "$GH_HOST"
 
       - name: Run post-migration validation
         shell: bash
@@ -616,6 +502,7 @@ jobs:
           sed -i 's/\r$//' ./3_post_migration_validation.sh
           chmod +x ./3_post_migration_validation.sh
 
+          export GITHUB_API_URL="${MIGRATION_TARGET_API_URL}"
           ./3_post_migration_validation.sh 2>&1 | tee 3_post_migration_validation.out
 
       - name: Upload validation artifacts
