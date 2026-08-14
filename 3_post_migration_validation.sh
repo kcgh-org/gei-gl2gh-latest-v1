@@ -273,10 +273,6 @@ gitlab_commit_count() {
     count="$(echo "$response" | jq 'length')"
     total=$((total + count))
 
-    if (( page == 1 || page % 25 == 0 )); then
-      write_log "[INFO] GitLab commit count progress: ${gitlab_group}/${gitlab_project} branch '${branch}' page=${page}, total_so_far=${total}" >&2
-    fi
-
     if [[ "$count" -lt "$per_page" ]]; then
       break
     fi
@@ -334,10 +330,6 @@ gh_commit_count() {
     count="$(echo "$response" | jq 'length')"
     total=$((total + count))
 
-    if (( page == 1 || page % 25 == 0 )); then
-      write_log "[INFO] GitHub commit count progress: ${github_org}/${github_repo} branch '${branch}' page=${page}, total_so_far=${total}" >&2
-    fi
-
     if [[ "$count" -lt "$per_page" ]]; then
       break
     fi
@@ -380,10 +372,7 @@ validate_migration() {
   local github_repo_exists=false
 
   write_log "============================================================"
-  write_log "REPO VALIDATION STARTED"
-  write_log "Source     : GitLab ${gitlab_group}/${gitlab_project}"
-  write_log "Repository : GitHub ${github_org}/${github_repo}"
-  write_log "============================================================"
+  write_log "Validating: ${gitlab_project} -> ${github_org}/${github_repo}"
 
   # GitHub repository existence
   if gh api -X GET "/repos/${github_org}/${github_repo}" >/dev/null 2>&1; then
@@ -585,17 +574,11 @@ validate_migration() {
     "${github_org},${github_repo},${gitlab_group},${gitlab_project},${github_repo_exists},${exists_status},${gh_branch_count},${gl_branch_count},${branch_count_match},${gh_default_branch},${gl_default_branch},${default_branch_match},${#branches_to_validate[@]},${commit_count_match},${latest_sha_match},${notes}" \
     >> "$SUMMARY_CSV"
 
-  write_log "============================================================"
-  write_log "VALIDATION COMPLETE"
-  write_log "Repository: $github_org/$github_repo"
-
   if [[ "$has_validation_errors" -eq 0 ]]; then
-    write_log "Result: Matching"
+    write_log "✅ Validation Passed"
   else
-    write_log "Result: Not Matching"
+    write_log "❌ Validation Failed"
   fi
-
-  write_log "============================================================"
 
   return "$has_validation_errors"
 }
@@ -710,12 +693,12 @@ echo "========================================================="
 ############################################
 # 3-way exit code
 ############################################
-if (( fail == 0 )); then
+if (( ok > 0 && fail == 0 )); then
   echo "[SUCCESS] All validated repositories passed post-migration validation"
   exit 0
 
 elif (( ok == 0 )); then
-  echo "[ERROR] All validated repositories failed post-migration validation"
+  echo "[ERROR] No repositories passed post-migration validation"
   exit 1
 
 else
