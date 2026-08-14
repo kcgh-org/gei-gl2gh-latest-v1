@@ -139,11 +139,12 @@ require_cmd awk
 require_cmd grep
 require_cmd python3
 
-require_env SOURCE_GL_SERVER_URL
 require_env GITLAB_PAT
 require_env GH_PAT
 
-SOURCE_GL_SERVER_URL="$(normalize_url "$SOURCE_GL_SERVER_URL")"
+GITLAB_SERVER_URL="${GITLAB_SERVER_URL:-https://gitlab.com}"
+GITLAB_SERVER_URL="$(normalize_url "$GITLAB_SERVER_URL")"
+
 GITHUB_API_URL="${GITHUB_API_URL:-https://api.github.com}"
 GITHUB_API_URL="$(normalize_url "$GITHUB_API_URL")"
 
@@ -161,6 +162,10 @@ fi
 
 if [[ "${MAX_CONCURRENT}" -lt 1 ]]; then
   fail "--max-concurrent must be at least 1"
+fi
+
+if [[ "${MAX_CONCURRENT}" -gt 10 ]]; then
+  fail "Maximum concurrent migrations (${MAX_CONCURRENT}) exceeds the allowed limit of 10. Please set --max-concurrent to 10 or less."
 fi
 
 sed -i 's/\r$//' "${CSV_PATH}" 2>/dev/null || true
@@ -308,7 +313,7 @@ update_repo_status_in_csv() {
 build_common_args() {
   COMMON_ARGS=()
 
-  COMMON_ARGS+=(--gitlab-server-url "$SOURCE_GL_SERVER_URL")
+  COMMON_ARGS+=(--gitlab-server-url "$GITLAB_SERVER_URL")
   COMMON_ARGS+=(--github-pat "$GH_PAT")
   COMMON_ARGS+=(--gitlab-pat "$GITLAB_PAT")
   COMMON_ARGS+=(--target-api-url "$GITHUB_API_URL")
@@ -386,8 +391,6 @@ migrate_repository() {
       --github-repo "${github_repo}" \
       --target-repo-visibility "${gh_repo_visibility}" >> "${log_file}" 2>&1
 
-    local migrate_rc=$?
-
     local migration_id
     migration_id="$(extract_migration_id "$log_file")"
 
@@ -395,15 +398,20 @@ migrate_repository() {
       printf '[%s] [INFO] Migration ID: %s\n' "$(date)" "$migration_id" >> "${log_file}"
     fi
 
-    if [[ "$migrate_rc" -eq 0 ]]; then
-      printf '[%s] [SUCCESS] Migration: %s/%s -> %s/%s\n' \
-        "$(date)" "${gitlab_group}" "${gitlab_project}" "${github_org}" "${github_repo}" >> "${log_file}"
-      return 0
+    if grep -q "No operation will be performed" "${log_file}" 2>/dev/null; then
+      printf '[%s] [FAILED] No operation performed - repository may already exist or migration was skipped\n' "$(date)" >> "${log_file}"
+      return 1
     fi
-
-    printf '[%s] [FAILED] Migration failed for %s/%s. See log file for details.\n' \
-      "$(date)" "${github_org}" "${github_repo}" >> "${log_file}"
-    return 1
+    
+    if ! grep -q "State: SUCCEEDED" "${log_file}" 2>/dev/null; then
+      printf '[%s] [FAILED] Migration did not reach SUCCEEDED state\n' "$(date)" >> "${log_file}"
+      return 1
+    fi
+    
+    printf '[%s] [SUCCESS] Migration: %s/%s -> %s/%s\n' \
+      "$(date)" "${gitlab_group}" "${gitlab_project}" "${github_org}" "${github_repo}" >> "${log_file}"
+    
+    return 0
   } >> "${log_file}" 2>&1
 }
 
@@ -427,7 +435,7 @@ log "============================================================"
 log "GitLab to GitHub migration using gh gl2gh migrate-repo"
 log "============================================================"
 log "[INFO] CSV_PATH              : $CSV_PATH"
-log "[INFO] SOURCE_GL_SERVER_URL  : $SOURCE_GL_SERVER_URL"
+log "[INFO] GITLAB_SERVER_URL     : $GITLAB_SERVER_URL"
 log "[INFO] GITHUB_API_URL        : $GITHUB_API_URL"
 log "[INFO] MAX_CONCURRENT        : $MAX_CONCURRENT"
 log "[INFO] STORAGE_TYPE          : ${STORAGE_TYPE:-GITHUB}"
