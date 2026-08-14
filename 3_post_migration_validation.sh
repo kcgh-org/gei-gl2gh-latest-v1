@@ -128,10 +128,10 @@ command -v gh >/dev/null 2>&1 || { echo "ERROR: GitHub CLI (gh) not found" >&2; 
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq not found" >&2; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "ERROR: curl not found" >&2; exit 1; }
 
-[[ -n "${SOURCE_GL_SERVER_URL:-}" ]] || { echo "ERROR: SOURCE_GL_SERVER_URL is not set" >&2; exit 1; }
-[[ -n "${GITLAB_PAT:-}" ]] || { echo "ERROR: GITLAB_PAT is not set" >&2; exit 1; }
+GITLAB_SERVER_URL="${GITLAB_SERVER_URL:-https://gitlab.com}"
+GITLAB_SERVER_URL="${GITLAB_SERVER_URL%/}"
 
-SOURCE_GL_SERVER_URL="${SOURCE_GL_SERVER_URL%/}"
+[[ -n "${GITLAB_PAT:-}" ]] || { echo "ERROR: GITLAB_PAT is not set" >&2; exit 1; }
 
 if [[ -z "${GH_TOKEN:-}" && -n "${GH_PAT:-}" ]]; then
   export GH_TOKEN="${GH_PAT}"
@@ -157,7 +157,7 @@ fi
 
 write_log "[INFO] Starting GitLab -> GitHub post-migration validation"
 write_log "[INFO] Repos status file : $REPOS_STATUS_FILE"
-write_log "[INFO] Source GitLab URL : $SOURCE_GL_SERVER_URL"
+write_log "[INFO] Source GitLab URL : $GITLAB_SERVER_URL"
 write_log "[INFO] Output Dir        : $OUTPUT_DIR"
 write_log "[INFO] Log File          : $LOG_FILE"
 write_log "[INFO] Summary CSV       : $SUMMARY_CSV"
@@ -198,7 +198,7 @@ gitlab_api() {
 
   curl -sS \
     -H "PRIVATE-TOKEN: ${GITLAB_PAT}" \
-    "${SOURCE_GL_SERVER_URL}/api/v4${endpoint}"
+    "${GITLAB_SERVER_URL}/api/v4${endpoint}"
 }
 
 gitlab_default_branch() {
@@ -706,3 +706,19 @@ echo "===================== FINAL SUMMARY ====================="
 } | column -t -s '|'
 
 echo "========================================================="
+
+############################################
+# 3-way exit code
+############################################
+if (( fail == 0 )); then
+  echo "[SUCCESS] All validated repositories passed post-migration validation"
+  exit 0
+
+elif (( ok == 0 )); then
+  echo "[ERROR] All validated repositories failed post-migration validation"
+  exit 1
+
+else
+  echo "[WARNING] Post-migration validation completed with partial success: ${ok} passed, ${fail} failed"
+  exit 0
+fi
