@@ -617,6 +617,29 @@ done
 
 echo "[INFO] Generated ${REPOS_WITH_STATUS_CSV}"
 
-if (( ${#FAILED[@]} > 0 )); then
-  echo -e "\033[33m[WARNING] Migration completed with ${#FAILED[@]} failures\033[0m"
+############################################
+# 3-way exit code
+############################################
+if (( ${#FAILED[@]} == 0 )); then
+  echo "[SUCCESS] All ${total_repos} repositories migrated successfully"
+  exit 0
+
+elif (( ${#MIGRATED[@]} == 0 )); then
+  echo "[ERROR] All ${total_repos} repositories failed to migrate"
+
+  for item in "${FAILED[@]}"; do
+    IFS=',' read -r gitlab_group gitlab_project github_org github_repo visibility <<< "${item}"
+    echo "[ERROR] Failed: ${github_org}/${github_repo} (${gitlab_group}/${gitlab_project})"
+  done
+  exit 1
+
+else
+  echo "[WARNING] Migration completed with partial success: ${#MIGRATED[@]} succeeded, ${#FAILED[@]} failed out of ${total_repos} total"
+
+  for item in "${FAILED[@]}"; do
+    IFS=',' read -r gitlab_group gitlab_project github_org github_repo visibility <<< "${item}"
+    echo "[WARNING] Failed: ${github_org}/${github_repo} (${gitlab_group}/${gitlab_project})"
+  done
+
+  exit 0
 fi
