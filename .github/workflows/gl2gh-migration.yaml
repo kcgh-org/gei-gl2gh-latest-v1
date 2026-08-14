@@ -27,6 +27,33 @@ on:
         default: "projects.csv"
         required: true
 
+      RUN_MIGRATION_READINESS:
+        description: "Run migration readiness check"
+        type: choice
+        options:
+          - "true"
+          - "false"
+        default: "true"
+        required: true
+
+      RUN_MIGRATION:
+        description: "Run repository migration"
+        type: choice
+        options:
+          - "true"
+          - "false"
+        default: "true"
+        required: true
+
+      RUN_POST_VALIDATION:
+        description: "Run post-migration validation"
+        type: choice
+        options:
+          - "true"
+          - "false"
+        default: "true"
+        required: true
+
       RUNNER_LABEL:
         description: "Runner label"
         type: string
@@ -51,7 +78,7 @@ jobs:
     environment: ${{ inputs.ENVIRONMENT_NAME }}
 
     env:
-      SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
+      GITLAB_SERVER_URL: ${{ vars.GITLAB_SERVER_URL }}
       GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
       INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
 
@@ -72,7 +99,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Validate runtime inputs, secrets, storage, and scripts
         shell: bash
@@ -116,10 +143,10 @@ jobs:
           echo "Checking environment variables..."
           echo "--------------------------------"
           
-          if [[ -n "${SOURCE_GL_SERVER_URL:-}" ]]; then
-            print_ok "SOURCE_GL_SERVER_URL is configured: ${SOURCE_GL_SERVER_URL}"
+          if [[ -n "${GITLAB_SERVER_URL:-}" ]]; then
+            print_ok "GITLAB_SERVER_URL is configured: ${GITLAB_SERVER_URL}"
           else
-            print_fail "SOURCE_GL_SERVER_URL is missing in GitHub Environment variables"
+            print_fail "GITLAB_SERVER_URL is missing in GitHub Environment variables"
           fi
 
           echo ""
@@ -308,13 +335,13 @@ jobs:
     needs: [env-validation]
 
     env:
-      SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
+      GITLAB_SERVER_URL: ${{ vars.GITLAB_SERVER_URL }}
       INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
       GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-prereqs
       
@@ -333,7 +360,7 @@ jobs:
 
       - name: Upload readiness artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: migration-readiness-check-artifacts
           retention-days: 7
@@ -355,7 +382,7 @@ jobs:
 
     steps:
       - name: Download readiness artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: migration-readiness-check-artifacts
           path: .
@@ -379,11 +406,12 @@ jobs:
   migrate-repositories:
     name: migrate-repositories
     runs-on: ${{ inputs.RUNNER_LABEL }}
+    timeout-minutes: 360
     environment: ${{ inputs.ENVIRONMENT_NAME }}
     needs: [approval-stage]
 
     env:
-      SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
+      GITLAB_SERVER_URL: ${{ vars.GITLAB_SERVER_URL }}
       GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
       INVENTORY_FILE: ${{ inputs.INVENTORY_FILE }}
 
@@ -405,7 +433,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         
       - uses: ./.github/actions/setup-prereqs
 
@@ -435,7 +463,7 @@ jobs:
 
       - name: Upload migration artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: migration-artifacts
           retention-days: 7
@@ -455,7 +483,7 @@ jobs:
     needs: [migrate-repositories]
     
     env:
-      SOURCE_GL_SERVER_URL: ${{ vars.SOURCE_GL_SERVER_URL }}
+      GITLAB_SERVER_URL: ${{ vars.GITLAB_SERVER_URL }}
       GITLAB_PAT: ${{ secrets.GITLAB_PAT }}
 
       TARGET_GITHUB_API_URL: ${{ inputs.TARGET_GITHUB_API_URL }}
@@ -466,7 +494,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-prereqs
 
@@ -476,7 +504,7 @@ jobs:
           github-api-url: ${{ inputs.TARGET_GITHUB_API_URL }}
 
       - name: Download migration artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: migration-artifacts
           path: .
@@ -505,7 +533,7 @@ jobs:
 
       - name: Upload validation artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: post-migration-validation-artifacts
           retention-days: 7
