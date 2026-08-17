@@ -13,18 +13,22 @@ set -euo pipefail
 # -------------------------
 # Config / env
 # -------------------------
-BASE_SCRIPT_LOC="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-LOG_DIR="$BASE_SCRIPT_LOC/logs"
-ARTIFACTS_DIR="$BASE_SCRIPT_LOC/output_files"
+# BASE_SCRIPT_LOC="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# LOG_DIR="$BASE_SCRIPT_LOC/logs"
+# ARTIFACTS_DIR="$BASE_SCRIPT_LOC/output_files"
 
-REPOS_STATUS_FILE="${REPOS_STATUS_FILE:-$ARTIFACTS_DIR/repos_with_status.csv}"
+RUN_TS="$(date +"%Y%m%d_%H%M%S")"
+LOG_DIR="$PWD/logs/3_post_migration_validation"
 POST_MIGRATION_VALIDATION_LOG="${POST_MIGRATION_VALIDATION_LOG:-$LOG_DIR/post-migration-validation}"
+
+ARTIFACTS_DIR="$PWD/output_files"
+REPOS_STATUS_FILE="${REPOS_STATUS_FILE:-$ARTIFACTS_DIR/migration/repos_with_status.csv}"
+OUTPUT_DIR="$ARTIFACTS_DIR/post_migration_validation"
 
 BRANCH_VALIDATION_THRESHOLD="${BRANCH_VALIDATION_THRESHOLD:-10}"
 COMMIT_CHECK="${COMMIT_CHECK:-true}"
 
-RUN_TS="$(date +"%Y%m%d_%H%M%S")"
-OUTPUT_DIR="$ARTIFACTS_DIR/post-migration-validation"
+# OUTPUT_DIR="$ARTIFACTS_DIR/post-migration-validation"
 LOG_FILE="${POST_MIGRATION_VALIDATION_LOG}-${RUN_TS}.log"
 SUMMARY_CSV="${OUTPUT_DIR}/validation-summary_${RUN_TS}.csv"
 SUMMARY_MD="${OUTPUT_DIR}/validation-summary_${RUN_TS}.md"
