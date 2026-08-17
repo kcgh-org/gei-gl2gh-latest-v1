@@ -131,9 +131,14 @@ find_col() {
 command -v gh >/dev/null 2>&1 || { echo "ERROR: GitHub CLI (gh) not found" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq not found" >&2; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "ERROR: curl not found" >&2; exit 1; }
+command -v column >/dev/null 2>&1 || { echo "ERROR: column not found" >&2; exit 1; }
 
 GITLAB_SERVER_URL="${GITLAB_SERVER_URL:-https://gitlab.com}"
 GITLAB_SERVER_URL="${GITLAB_SERVER_URL%/}"
+
+if [[ "$GITLAB_SERVER_URL" != http://* && "$GITLAB_SERVER_URL" != https://* ]]; then
+  GITLAB_SERVER_URL="https://${GITLAB_SERVER_URL}"
+fi
 
 [[ -n "${GITLAB_PAT:-}" ]] || { echo "ERROR: GITLAB_PAT is not set" >&2; exit 1; }
 
