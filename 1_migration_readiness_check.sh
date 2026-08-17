@@ -13,8 +13,7 @@ set -euo pipefail
 # -o pipefail: if any command in a pipeline fails, the whole pipeline fails.
 
 # --- Config ---
-BASE_SCRIPT_LOC="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-LOG_DIR="$BASE_SCRIPT_LOC/logs"
+LOG_DIR="$PWD/logs"
 
 # Default to GitLab.com if not provided.
 # Accepts either:
