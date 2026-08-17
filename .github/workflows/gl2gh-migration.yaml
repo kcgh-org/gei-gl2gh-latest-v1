@@ -111,12 +111,6 @@ jobs:
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 
     steps:
-      - name: Show Effective Timeout
-        run: |
-          echo "Runner: $RUNNER_NAME"
-          echo "Use Self Hosted: ${{ inputs.USE_SELF_HOSTED_RUNNER }}"
-          echo "Effective Timeout: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && 7200 || 360 }}"
-    
       - name: Checkout
         uses: actions/checkout@v6
 
@@ -361,6 +355,7 @@ jobs:
   migration-readiness-check:
     name: migration-readiness-check
     runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && inputs.SELF_HOSTED_RUNNER_LABEL || 'ubuntu-latest' }}
+    timeout-minutes: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && 7200 || 360 }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
     needs: [env-validation]
     if: ${{ inputs.RUN_MIGRATION_READINESS == 'true' }}
@@ -408,6 +403,7 @@ jobs:
   approval-stage:
     name: approval-stage
     runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && inputs.SELF_HOSTED_RUNNER_LABEL || 'ubuntu-latest' }}
+    timeout-minutes: 1440
     needs: [migration-readiness-check]
     if: ${{ inputs.RUN_MIGRATION_READINESS == 'true' }}
     environment:
@@ -440,7 +436,7 @@ jobs:
   migrate-repositories:
     name: migrate-repositories
     runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && inputs.SELF_HOSTED_RUNNER_LABEL || 'ubuntu-latest' }}
-    timeout-minutes: 360
+    timeout-minutes: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && 7200 || 360 }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
     needs:
       - env-validation
@@ -526,6 +522,7 @@ jobs:
   post-migration-validation:
     name: post-migration-validation
     runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && inputs.SELF_HOSTED_RUNNER_LABEL || 'ubuntu-latest' }}
+    timeout-minutes: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && 7200 || 360 }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
     needs: [migrate-repositories]
 
