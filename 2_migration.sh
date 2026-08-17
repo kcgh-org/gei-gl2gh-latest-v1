@@ -645,12 +645,20 @@ done < <(
 ############################################
 # 3-way exit code
 ############################################
-if (( ${#FAILED[@]} == 0 )); then
-  echo "[SUCCESS] All ${total_repos} repositories migrated successfully"
+
+# Nothing was actually attempted
+if (( ${#MIGRATED[@]} == 0 && ${#FAILED[@]} == 0 )); then
+  echo "[ERROR] No repositories were migrated. All ${SKIPPED} repositories were skipped."
+  exit 1
+
+# All attempted migrations succeeded
+elif (( ${#FAILED[@]} == 0 )); then
+  echo "[SUCCESS] All ${#MIGRATED[@]} repositories migrated successfully"
   exit 0
 
+# All attempted migrations failed
 elif (( ${#MIGRATED[@]} == 0 )); then
-  echo "[ERROR] All ${total_repos} repositories failed to migrate"
+  echo "[ERROR] All ${#FAILED[@]} repositories failed to migrate"
 
   for item in "${FAILED[@]}"; do
     IFS=',' read -r gitlab_group gitlab_project github_org github_repo visibility <<< "${item}"
@@ -658,8 +666,9 @@ elif (( ${#MIGRATED[@]} == 0 )); then
   done
   exit 1
 
+# Partial success
 else
-  echo "[WARNING] Migration completed with partial success: ${#MIGRATED[@]} succeeded, ${#FAILED[@]} failed out of ${total_repos} total"
+  echo "[WARNING] Migration completed with partial success: ${#MIGRATED[@]} succeeded, ${#FAILED[@]} failed"
 
   for item in "${FAILED[@]}"; do
     IFS=',' read -r gitlab_group gitlab_project github_org github_repo visibility <<< "${item}"
