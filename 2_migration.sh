@@ -13,17 +13,25 @@ set -o pipefail
 ############################################
 # Defaults
 ############################################
-MAX_CONCURRENT=10
+LOG_DIR="$PWD/logs/2_migration"
+REPO_LOG_DIR="$LOG_DIR/gl2gh-repo-wise-logs"
+
+OUTPUT_DIR="$PWD/migration_output_files"
+
 CSV_PATH="${INVENTORY_FILE:-projects.csv}"
+MAX_CONCURRENT=10
 OUTPUT_PATH=""
 timestamp="$(date +%Y%m%d-%H%M%S)"
 
-ROOT_DIR="${CI_PROJECT_DIR:-$(pwd)}"
-LOG_DIR="$ROOT_DIR/logs"
-OUTPUT_DIR="$ROOT_DIR/output_files"
-VERBOSE_DIR="$LOG_DIR/gl2gh-verbose-logs"
+mkdir -p "$LOG_DIR" "$REPO_LOG_DIR" "$OUTPUT_DIR"
 
-mkdir -p "$LOG_DIR" "$OUTPUT_DIR" "$VERBOSE_DIR"
+# ROOT_DIR="${CI_PROJECT_DIR:-$(pwd)}"
+# LOG_DIR="$ROOT_DIR/logs"
+# VERBOSE_DIR="$LOG_DIR/gl2gh-verbose-logs"
+# mkdir -p "$VERBOSE_DIR"
+# mkdir -p "$LOG_DIR" "$OUTPUT_DIR"
+
+
 
 RUN_LOG="$LOG_DIR/gl2gh-migrate-repos-${timestamp}.log"
 REPOS_WITH_STATUS_CSV="$OUTPUT_DIR/repos_with_status.csv"
@@ -521,7 +529,8 @@ while (( ${#QUEUE[@]} > 0 )) || (( ${#JOB_PIDS[@]} > 0 )); do
     IFS=',' read -r gitlab_group gitlab_project github_org github_repo gh_repo_visibility <<< "${repo_info}"
 
     safe_name="$(echo "${github_org}_${github_repo}" | tr '/: ' '___' | tr -cd 'A-Za-z0-9._-')"
-    log_file="$LOG_DIR/gl2gh-${safe_name}-${timestamp}.log"
+    # log_file="$LOG_DIR/gl2gh-${safe_name}-${timestamp}.log"
+    log_file="$REPO_LOG_DIR/gl2gh-${safe_name}-${timestamp}.log"
 
     update_repo_status_in_csv "${github_org}" "${github_repo}" "In Progress" "${log_file}"
 
