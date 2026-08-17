@@ -14,7 +14,7 @@ set -o pipefail
 # Defaults
 ############################################
 LOG_DIR="$PWD/logs/2_migration"
-REPO_LOG_DIR="$LOG_DIR/gl2gh-repo-wise-logs"
+REPO_LOG_DIR="$LOG_DIR/repository-migration-logs"
 
 OUTPUT_DIR="$PWD/output_files/migration"
 
