@@ -389,17 +389,81 @@ jobs:
         if: always()
         shell: bash
         run: |
+          CLEAN_FILE=$(mktemp)
+
+          # Remove ANSI color codes from script output before writing to GitHub Summary
+          sed -r 's/\x1B\[[0-9;]*[mK]//g' \
+            1_migration_readiness_check.out > "$CLEAN_FILE"
+
+          total_open_mrs=$(grep -c "^MR URL:" "$CLEAN_FILE" || true)
+          total_running_pipelines=$(grep -c "^Pipeline URL:" "$CLEAN_FILE" || true)
+
+          final_message="$(grep -E "Open merge requests or active pipelines found|No open merge requests or active pipelines detected|Validation checks could not be completed|Active items detected" "$CLEAN_FILE" | tail -n 1 || true)"
+
           {
             echo "## 🔎 Migration Readiness Summary"
             echo ""
-      
-            grep -E "Total rows processed|Skipped rows" \
-              1_migration_readiness_check.out || true
-      
+
+            grep -E "Total rows processed|Skipped rows" "$CLEAN_FILE" || true
             echo ""
-      
-            grep -E "Merge Request Summary|Pipeline Summary|Detected Open Merge Request|Detected Running/Pending Pipeline" \
-              1_migration_readiness_check.out || true
+
+            if [[ "$total_open_mrs" -eq 0 ]]; then
+              echo "Merge Requests       : None Detected"
+            else
+              echo "⚠️ Open Merge Requests Detected"
+            fi
+
+            if [[ "$total_running_pipelines" -eq 0 ]]; then
+              echo "Pipelines            : None Detected"
+            else
+              echo "⚠️ Running/Pending Pipelines Detected"
+            fi
+
+            echo ""
+            echo "Total Open MRs       : ${total_open_mrs}"
+            echo "Total Running/Pending Pipelines : ${total_running_pipelines}"
+            echo ""
+
+            if [[ "$total_open_mrs" -gt 0 && "$total_open_mrs" -le 5 ]]; then
+              echo "### Open Merge Request Details"
+              echo ""
+
+              awk '
+                /^\[WARNING\] Detected Open Merge Request\(s\):/ {in_mr=1; next}
+                /^Pipeline Summary|^\[WARNING\] Detected Running\/Pending Pipeline\(s\):/ {in_mr=0}
+                in_mr && (/^Project:/ || /^MR URL:/) {print}
+              ' "$CLEAN_FILE"
+
+              echo ""
+            elif [[ "$total_open_mrs" -gt 5 ]]; then
+              echo "Open merge request details are not shown because more than 5 open MRs were detected."
+              echo ""
+            fi
+
+            if [[ "$total_running_pipelines" -gt 0 && "$total_running_pipelines" -le 5 ]]; then
+              echo "### Running/Pending Pipeline Details"
+              echo ""
+
+              awk '
+                /^\[WARNING\] Detected Running\/Pending Pipeline\(s\):/ {in_pipe=1; next}
+                /^Open merge requests|^No open merge requests|^Validation checks|^Active items detected/ {in_pipe=0}
+                in_pipe && (/^Project:/ || /^Pipeline URL:/) {print}
+              ' "$CLEAN_FILE"
+
+              echo ""
+            elif [[ "$total_running_pipelines" -gt 5 ]]; then
+              echo "Pipeline details are not shown because more than 5 running/pending pipelines were detected."
+              echo ""
+            fi
+
+            if [[ "$total_open_mrs" -gt 5 || "$total_running_pipelines" -gt 5 ]]; then
+              echo "Review readiness artifacts for detailed repository-level findings."
+              echo ""
+            fi
+
+            if [[ -n "$final_message" ]]; then
+              echo "$final_message"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload readiness artifacts
