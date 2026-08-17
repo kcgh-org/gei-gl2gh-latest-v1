@@ -24,14 +24,15 @@ OUTPUT_PATH=""
 timestamp="$(date +%Y%m%d-%H%M%S)"
 
 mkdir -p "$LOG_DIR" "$REPO_LOG_DIR" "$OUTPUT_DIR"
-
+existing_octoshift_logs=$(find "$PWD" -maxdepth 1 -type f \
+  \( -name "*.octoshift.log" -o -name "*.octoshift.verbose.log" \) \
+  -printf "%f\n" 2>/dev/null || true)
+  
 # ROOT_DIR="${CI_PROJECT_DIR:-$(pwd)}"
 # LOG_DIR="$ROOT_DIR/logs"
 # VERBOSE_DIR="$LOG_DIR/gl2gh-verbose-logs"
 # mkdir -p "$VERBOSE_DIR"
 # mkdir -p "$LOG_DIR" "$OUTPUT_DIR"
-
-
 
 RUN_LOG="$LOG_DIR/gl2gh-migrate-repos-${timestamp}.log"
 REPOS_WITH_STATUS_CSV="$OUTPUT_DIR/repos_with_status.csv"
@@ -625,6 +626,21 @@ for item in "${FAILED[@]}"; do
 done
 
 echo "[INFO] Generated ${REPOS_WITH_STATUS_CSV}"
+
+############################################
+# Move newly created Octoshift logs
+############################################
+while IFS= read -r logfile; do
+  [[ -z "$logfile" ]] && continue
+
+  if ! grep -Fxq "$logfile" <<< "$existing_octoshift_logs"; then
+    mv "$PWD/$logfile" "$LOG_DIR/" 2>/dev/null || true
+  fi
+done < <(
+  find "$PWD" -maxdepth 1 -type f \
+    \( -name "*.octoshift.log" -o -name "*.octoshift.verbose.log" \) \
+    -printf "%f\n" 2>/dev/null
+)
 
 ############################################
 # 3-way exit code
