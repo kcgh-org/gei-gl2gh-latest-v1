@@ -385,6 +385,23 @@ jobs:
 
           ./1_migration_readiness_check.sh 2>&1 | tee 1_migration_readiness_check.out
 
+      - name: Publish readiness summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## 🔎 Migration Readiness Summary"
+            echo ""
+      
+            grep -E "Total rows processed|Skipped rows" \
+              1_migration_readiness_check.out || true
+      
+            echo ""
+      
+            grep -E "Merge Request Summary|Pipeline Summary|Detected Open Merge Request|Detected Running/Pending Pipeline" \
+              1_migration_readiness_check.out || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload readiness artifacts
         if: always()
         uses: actions/upload-artifact@v7
@@ -504,6 +521,36 @@ jobs:
           echo "[INFO] Generated output files:"
           find output_files -type f -maxdepth 2 -print || true
 
+      - name: Publish migration summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## 🚀 Migration Summary"
+            echo ""
+
+            if [[ -f output_files/migration/repos_with_status.csv ]]; then
+
+              success_count=$(tail -n +2 output_files/migration/repos_with_status.csv | grep -c ",Success$" || true)
+              failed_count=$(tail -n +2 output_files/migration/repos_with_status.csv | grep -c ",Failure$" || true)
+
+              echo "- ✅ Success: ${success_count}"
+              echo "- ❌ Failed: ${failed_count}"
+              echo ""
+
+              echo "| GitLab Repository | GitHub Repository | Status |"
+              echo "|---|---|---|"
+
+              tail -n +2 output_files/migration/repos_with_status.csv | while IFS=',' read -r gl_group gl_project gh_org gh_repo visibility status
+              do
+                echo "| \`${gl_group}/${gl_project}\` | \`${gh_org}/${gh_repo}\` | ${status} |"
+              done
+
+            else
+              echo "⚠️ repos_with_status.csv not found"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload migration artifacts
         if: always()
         uses: actions/upload-artifact@v7
@@ -581,6 +628,25 @@ jobs:
           export GITHUB_API_URL="${TARGET_GITHUB_API_URL}"
           echo "GH API URL is: $GITHUB_API_URL"
           ./3_post_migration_validation.sh 2>&1 | tee 3_post_migration_validation.out
+
+      - name: Publish validation summary
+        if: always()
+        shell: bash
+        run: |
+          latest_md=$(find output_files/post_migration_validation \
+            -name "validation-summary_*.md" \
+            | sort | tail -n 1)
+      
+          if [[ -f "$latest_md" ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            cat "$latest_md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## 🔎 Post Migration Validation Summary"
+              echo ""
+              echo "⚠️ Validation summary file not found"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload validation artifacts
         if: always()
