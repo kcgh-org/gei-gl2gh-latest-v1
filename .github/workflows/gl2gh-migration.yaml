@@ -60,15 +60,6 @@ on:
         default: "true"
         required: true
 
-      RUN_POST_VALIDATION:
-        description: "Run post-migration validation"
-        type: choice
-        options:
-          - "true"
-          - "false"
-        default: "true"
-        required: true
-
 permissions:
   contents: read
   actions: read
@@ -639,7 +630,6 @@ jobs:
 
     if: ${{ 
           always() &&
-          inputs.RUN_POST_VALIDATION == 'true' &&
           needs.migrate-repositories.result == 'success'
         }}
     
