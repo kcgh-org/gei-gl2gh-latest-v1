@@ -84,6 +84,7 @@ jobs:
   env-validation:
     name: env-validation
     runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && inputs.SELF_HOSTED_RUNNER_LABEL || 'ubuntu-latest' }}
+    timeout-minutes: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && 7200 || 360 }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
 
     env:
@@ -110,25 +111,19 @@ jobs:
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 
     steps:
+      - name: Show Effective Timeout
+        run: |
+          echo "Runner: $RUNNER_NAME"
+          echo "Use Self Hosted: ${{ inputs.USE_SELF_HOSTED_RUNNER }}"
+          echo "Effective Timeout: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && 7200 || 360 }}"
+    
       - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Display Runner Information
-        shell: bash
-        run: |
-          echo "====================================="
-          echo "Runner Information"
-          echo "====================================="
-          echo "Runner Name            : $RUNNER_NAME"
-          echo "Runner OS              : $RUNNER_OS"
-          echo "Runner Architecture    : $RUNNER_ARCH"
-          echo "Use Self Hosted Runner : ${{ inputs.USE_SELF_HOSTED_RUNNER }}"
-          echo "Runner Label           : ${{ inputs.SELF_HOSTED_RUNNER_LABEL }}"
-          echo "====================================="
 
       - name: Validate runtime inputs, secrets, storage, and scripts
         shell: bash
         run: |
+          echo "Running on: $RUNNER_NAME - $RUNNER_OS"
           echo "====================================="
           echo "# 1) Environment Validation"
           echo "====================================="
@@ -384,6 +379,7 @@ jobs:
       - name: Run migration readiness check
         shell: bash
         run: |
+          echo "Running on: $RUNNER_NAME - $RUNNER_OS"
           echo "=================================="
           echo "# 3) Migration Readiness Check"
           echo "=================================="
@@ -427,6 +423,7 @@ jobs:
       - name: Approval notice
         shell: bash
         run: |
+          echo "Running on: $RUNNER_NAME - $RUNNER_OS"
           echo "===================================="
           echo "MANUAL APPROVAL REQUIRED"
           echo "===================================="
@@ -494,6 +491,7 @@ jobs:
       - name: Run repository migration
         shell: bash
         run: |
+          echo "Running on: $RUNNER_NAME - $RUNNER_OS"
           echo "========================="
           echo "# 5) Migrating Repos"
           echo "========================="
@@ -567,6 +565,7 @@ jobs:
       - name: Run post-migration validation
         shell: bash
         run: |
+          echo "Running on: $RUNNER_NAME - $RUNNER_OS"
           echo "================================"
           echo "# 6) Post Migration Validation"
           echo "================================"
