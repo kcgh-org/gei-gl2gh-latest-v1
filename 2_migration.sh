@@ -16,7 +16,7 @@ set -o pipefail
 LOG_DIR="$PWD/logs/2_migration"
 REPO_LOG_DIR="$LOG_DIR/gl2gh-repo-wise-logs"
 
-OUTPUT_DIR="$PWD/migration_output_files"
+OUTPUT_DIR="$PWD/output_files/migration"
 
 CSV_PATH="${INVENTORY_FILE:-projects.csv}"
 MAX_CONCURRENT=10
