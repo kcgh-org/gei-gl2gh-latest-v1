@@ -83,10 +83,7 @@ jobs:
   # ------------------------------------------------------------
   env-validation:
     name: env-validation
-    runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true'
-                && fromJson(format('["self-hosted","{0}"]', inputs.SELF_HOSTED_RUNNER_LABEL))
-                || 'ubuntu-latest'
-              }}
+    runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && inputs.SELF_HOSTED_RUNNER_LABEL || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
 
     env:
@@ -368,10 +365,7 @@ jobs:
   # ------------------------------------------------------------
   migration-readiness-check:
     name: migration-readiness-check
-    runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true'
-                && fromJson(format('["self-hosted","{0}"]', inputs.SELF_HOSTED_RUNNER_LABEL))
-                || 'ubuntu-latest'
-              }}
+    runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && inputs.SELF_HOSTED_RUNNER_LABEL || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
     needs: [env-validation]
     if: ${{ inputs.RUN_MIGRATION_READINESS == 'true' }}
@@ -417,10 +411,7 @@ jobs:
   # ------------------------------------------------------------
   approval-stage:
     name: approval-stage
-    runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true'
-                && fromJson(format('["self-hosted","{0}"]', inputs.SELF_HOSTED_RUNNER_LABEL))
-                || 'ubuntu-latest'
-              }}
+    runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && inputs.SELF_HOSTED_RUNNER_LABEL || 'ubuntu-latest' }}
     needs: [migration-readiness-check]
     if: ${{ inputs.RUN_MIGRATION_READINESS == 'true' }}
     environment:
@@ -451,10 +442,7 @@ jobs:
   # ------------------------------------------------------------
   migrate-repositories:
     name: migrate-repositories
-    runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true'
-                && fromJson(format('["self-hosted","{0}"]', inputs.SELF_HOSTED_RUNNER_LABEL))
-                || 'ubuntu-latest'
-              }}
+    runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && inputs.SELF_HOSTED_RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 360
     environment: ${{ inputs.ENVIRONMENT_NAME }}
     needs:
@@ -539,10 +527,7 @@ jobs:
   # ------------------------------------------------------------
   post-migration-validation:
     name: post-migration-validation
-    runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true'
-                && fromJson(format('["self-hosted","{0}"]', inputs.SELF_HOSTED_RUNNER_LABEL))
-                || 'ubuntu-latest'
-              }}
+    runs-on: ${{ inputs.USE_SELF_HOSTED_RUNNER == 'true' && inputs.SELF_HOSTED_RUNNER_LABEL || 'ubuntu-latest' }}
     environment: ${{ inputs.ENVIRONMENT_NAME }}
     needs: [migrate-repositories]
 
