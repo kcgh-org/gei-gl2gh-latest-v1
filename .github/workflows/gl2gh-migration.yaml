@@ -117,7 +117,7 @@ jobs:
       - name: Validate runtime inputs, secrets, storage, and scripts
         shell: bash
         run: |
-          echo "Running on: $RUNNER_NAME - $RUNNER_OS"
+          echo "Runner: $RUNNER_NAME | OS: $RUNNER_OS"
           echo "====================================="
           echo "# 1) Environment Validation"
           echo "====================================="
@@ -374,7 +374,7 @@ jobs:
       - name: Run migration readiness check
         shell: bash
         run: |
-          echo "Running on: $RUNNER_NAME - $RUNNER_OS"
+          echo "Runner: $RUNNER_NAME | OS: $RUNNER_OS"
           echo "=================================="
           echo "# 3) Migration Readiness Check"
           echo "=================================="
@@ -436,7 +436,7 @@ jobs:
       - name: Approval notice
         shell: bash
         run: |
-          echo "Running on: $RUNNER_NAME - $RUNNER_OS"
+          echo "Runner: $RUNNER_NAME | OS: $RUNNER_OS"
           echo "===================================="
           echo "MANUAL APPROVAL REQUIRED"
           echo "===================================="
@@ -504,7 +504,7 @@ jobs:
       - name: Run repository migration
         shell: bash
         run: |
-          echo "Running on: $RUNNER_NAME - $RUNNER_OS"
+          echo "Runner: $RUNNER_NAME | OS: $RUNNER_OS"
           echo "========================="
           echo "# 5) Migrating Repos"
           echo "========================="
@@ -609,7 +609,7 @@ jobs:
       - name: Run post-migration validation
         shell: bash
         run: |
-          echo "Running on: $RUNNER_NAME - $RUNNER_OS"
+          echo "Runner: $RUNNER_NAME | OS: $RUNNER_OS"
           echo "================================"
           echo "# 6) Post Migration Validation"
           echo "================================"
