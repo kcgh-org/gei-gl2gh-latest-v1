@@ -13,7 +13,7 @@ set -euo pipefail
 # -o pipefail: if any command in a pipeline fails, the whole pipeline fails.
 
 # --- Config ---
-LOG_DIR="$PWD/logs"
+LOG_DIR="$PWD/logs/1_migration_readiness_check"
 
 # Default to GitLab.com if not provided.
 # Accepts either:
