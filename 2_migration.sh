@@ -327,16 +327,32 @@ build_common_args() {
   COMMON_ARGS+=(--gitlab-pat "$GITLAB_PAT")
   COMMON_ARGS+=(--target-api-url "$GITHUB_API_URL")
 
+  STORAGE_TYPE="$(echo "${STORAGE_TYPE:-GITHUB}" | tr '[:lower:]' '[:upper:]')"
   TARGET_UPLOAD_URL="$(normalize_url "${TARGET_UPLOAD_URL:-}")"
-  if [[ -n "$TARGET_UPLOAD_URL" ]]; then
-    COMMON_ARGS+=(--target-uploads-url "$TARGET_UPLOAD_URL")
+
+  if [[ "$STORAGE_TYPE" == "GITHUB" ]]; then
+    if [[ "$GITHUB_API_URL" =~ ^https://api\.([a-zA-Z0-9.-]+)\.ghe\.com/?$ ]]; then
+      if [[ -z "$TARGET_UPLOAD_URL" ]]; then
+        ghe_subdomain="${BASH_REMATCH[1]}"
+        TARGET_UPLOAD_URL="https://uploads.${ghe_subdomain}.ghe.com"
+
+        log "[INFO] TARGET_UPLOAD_URL is not configured."
+        log "[INFO] Auto-generated TARGET_UPLOAD_URL for GitHub Enterprise Cloud Data Residency: ${TARGET_UPLOAD_URL}"
+      else
+        log "[INFO] Using configured TARGET_UPLOAD_URL: ${TARGET_UPLOAD_URL}"
+      fi
+    fi
   fi
 
-  STORAGE_TYPE="$(echo "${STORAGE_TYPE:-GITHUB}" | tr '[:lower:]' '[:upper:]')"
   case "$STORAGE_TYPE" in
     GITHUB)
       COMMON_ARGS+=(--use-github-storage)
+
+      if [[ -n "$TARGET_UPLOAD_URL" ]]; then
+        COMMON_ARGS+=(--target-uploads-url "$TARGET_UPLOAD_URL")
+      fi
       ;;
+
     AZURE)
       require_env AZURE_STORAGE_CONNECTION_STRING
       COMMON_ARGS+=(--azure-storage-connection-string "$AZURE_STORAGE_CONNECTION_STRING")
