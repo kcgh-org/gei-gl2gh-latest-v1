@@ -274,11 +274,18 @@ jobs:
             print_ok "STORAGE_TYPE is GITHUB"
           
             if [[ "$IS_DR" == "true" ]]; then
+          
               if [[ -n "${TARGET_UPLOAD_URL:-}" ]]; then
                 print_ok "TARGET_UPLOAD_URL is configured for GitHub Enterprise Cloud Data Residency: ${TARGET_UPLOAD_URL}"
-              else
-                print_fail "TARGET_UPLOAD_URL is required when TARGET_GITHUB_API_URL is DR and STORAGE_TYPE=GITHUB"
-                print_info "Expected format: https://uploads.<SUBDOMAIN>.ghe.com"
+          
+              elif [[ "${TARGET_GITHUB_API_URL}" =~ ^https://api\.([a-zA-Z0-9.-]+)\.ghe\.com/?$ ]]; then
+          
+                DR_SUBDOMAIN="${BASH_REMATCH[1]}"
+                DEFAULT_UPLOAD_URL="https://uploads.${DR_SUBDOMAIN}.ghe.com"
+          
+                print_info "TARGET_UPLOAD_URL is not configured."
+                print_info "Will auto-generate TARGET_UPLOAD_URL as: ${DEFAULT_UPLOAD_URL}"
+          
               fi
             fi
           
@@ -587,7 +594,7 @@ jobs:
             if [[ -f output_files/migration/repos_with_status.csv ]]; then
 
               success_count=$(tail -n +2 output_files/migration/repos_with_status.csv | grep -c ",Success$" || true)
-              failed_count=$(tail -n +2 output_files/migration/repos_with_status.csv | grep -c ",Failure$" || true)
+              failed_count=$(tail -n +2 output_files/migration/repos_with_status.csv | grep -c ",Failed$" || true)
 
               echo "- ✅ Success: ${success_count}"
               echo "- ❌ Failed: ${failed_count}"
